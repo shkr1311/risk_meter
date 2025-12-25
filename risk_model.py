@@ -24,7 +24,7 @@ except ImportError:
 # Page Setup
 st.set_page_config(page_title="Professional Risk Meter", layout="wide", initial_sidebar_state="expanded")
 
-# CSS for better alignment and professional look
+# CSS for clean, professional look and alignment
 st.markdown("""
 <style>
     .main-header {
@@ -152,7 +152,7 @@ def calculate_macd(prices):
     signal = macd.ewm(span=9).mean()
     return macd, signal
 
-# Risk Calculator
+# Risk Metrics Calculation
 def calculate_metrics(df, market_df=None, rfr=0.02):
     try:
         close = df['Close']
@@ -221,64 +221,44 @@ def calculate_metrics(df, market_df=None, rfr=0.02):
         return None
 
 def categorize_risk(score):
-    if score <= 20:
-        return "Very Low", "#10b981"
-    elif score <= 35:
-        return "Low", "#059669"
-    elif score <= 50:
-        return "Moderate", "#f59e0b"
-    elif score <= 65:
-        return "Elevated", "#f97316"
-    elif score <= 80:
-        return "High", "#ef4444"
-    else:
-        return "Very High", "#dc2626"
+    if score <= 20: return "Very Low", "#10b981"
+    elif score <= 35: return "Low", "#059669"
+    elif score <= 50: return "Moderate", "#f59e0b"
+    elif score <= 65: return "Elevated", "#f97316"
+    elif score <= 80: return "High", "#ef4444"
+    else: return "Very High", "#dc2626"
 
 def get_recommendation(m):
-    if not m:
-        return "HOLD", "Insufficient data"
+    if not m: return "HOLD", "Insufficient data"
     score, sharpe, ret = m['risk_score'], m['sharpe'], m['annual_return']
-    if score < 35 and sharpe > 1.5 and ret > 10:
-        return "STRONG BUY", "Excellent metrics"
-    elif score < 50 and sharpe > 1.0 and ret > 5:
-        return "BUY", "Good profile"
-    elif score < 60 and sharpe > 0.5:
-        return "HOLD", "Moderate risk"
-    elif score < 75:
-        return "REDUCE", "Elevated risk"
-    else:
-        return "SELL", "High risk"
+    if score < 35 and sharpe > 1.5 and ret > 10: return "STRONG BUY", "Excellent metrics"
+    elif score < 50 and sharpe > 1.0 and ret > 5: return "BUY", "Good profile"
+    elif score < 60 and sharpe > 0.5: return "HOLD", "Moderate risk"
+    elif score < 75: return "REDUCE", "Elevated risk"
+    else: return "SELL", "High risk"
 
 def detect_patterns(df):
     patterns = []
     close = df['Close'].values
-    if len(close) < 20:
-        return ["Insufficient data"]
+    if len(close) < 20: return ["Insufficient data"]
     recent = close[-20:]
     slope = np.polyfit(range(len(recent)), recent, 1)[0]
-    if slope > close[-1] * 0.01:
-        patterns.append("Strong Uptrend")
-    elif slope < -close[-1] * 0.01:
-        patterns.append("Strong Downtrend")
-    else:
-        patterns.append("Sideways")
+    if slope > close[-1] * 0.01: patterns.append("Strong Uptrend")
+    elif slope < -close[-1] * 0.01: patterns.append("Strong Downtrend")
+    else: patterns.append("Sideways")
     current = close[-1]
     resistance = np.percentile(close[-30:], 95)
     support = np.percentile(close[-30:], 5)
-    if current >= resistance * 0.98:
-        patterns.append("Near Resistance")
-    elif current <= support * 1.02:
-        patterns.append("Near Support")
+    if current >= resistance * 0.98: patterns.append("Near Resistance")
+    elif current <= support * 1.02: patterns.append("Near Support")
     if len(close) >= 30:
         recent_vol = np.std(close[-10:])
         hist_vol = np.std(close[-30:-10])
-        if recent_vol > hist_vol * 1.5:
-            patterns.append("High Volatility")
-        elif recent_vol < hist_vol * 0.6:
-            patterns.append("Low Volatility")
+        if recent_vol > hist_vol * 1.5: patterns.append("High Volatility")
+        elif recent_vol < hist_vol * 0.6: patterns.append("Low Volatility")
     return patterns
 
-# Session State
+# Session State Initialization
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = ['AAPL', 'MSFT', 'GOOGL', 'RELIANCE.NS', 'TCS.NS', 'INFY.NS']
 if 'period' not in st.session_state:
@@ -323,31 +303,32 @@ if page == "Risk Meter Dashboard":
         st.divider()
         st.subheader("Portfolio Management")
         new_symbol = st.text_input("Add Stock Symbol", placeholder="e.g., AAPL or RELIANCE").upper()
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if st.button("Add Symbol") and new_symbol:
+        
+        col_add, col_refresh = st.columns([1, 4])
+        with col_add:
+            if st.button("➕") and new_symbol.strip():
                 if new_symbol not in st.session_state.portfolio:
                     st.session_state.portfolio.append(new_symbol)
                     st.success(f"{new_symbol} added")
                     st.rerun()
-        with col2:
-            if st.button("Refresh All Data"):
+        with col_refresh:
+            if st.button("🔄 Refresh All Data"):
                 st.cache_data.clear()
                 st.rerun()
         
         st.markdown("**Current Holdings**")
         for sym in st.session_state.portfolio[:]:
-            col1, col2 = st.columns([3, 1])
-            col1.write(sym)
-            if col2.button("Remove", key=f"rm_{sym}"):
+            col_sym, col_remove = st.columns([4, 1])
+            col_sym.write(sym)
+            if col_remove.button("✖", key=f"rm_{sym}"):
                 st.session_state.portfolio.remove(sym)
                 st.rerun()
 
+    # Main Dashboard Logic
     if not st.session_state.portfolio:
-        st.info("Please add at least one stock symbol to begin analysis.")
+        st.info("Add at least one stock symbol to begin analysis.")
         st.stop()
 
-    # Data fetching
     data, info, markets, metrics, used_symbols = {}, {}, {}, {}, {}
     progress_bar = st.progress(0)
     status_text = st.empty()
@@ -358,7 +339,7 @@ if page == "Risk Meter Dashboard":
     period = st.session_state.period if not start_date else None
 
     for i, sym in enumerate(st.session_state.portfolio):
-        status_text.text(f"Fetching data for {sym}... ({i+1}/{len(st.session_state.portfolio)})")
+        status_text.text(f"Fetching {sym}... ({i+1}/{len(st.session_state.portfolio)})")
         progress_bar.progress((i + 1) / len(st.session_state.portfolio))
         
         df, inf, mkt, used_sym = fetch_data(sym, period, start_date, end_date)
@@ -378,15 +359,14 @@ if page == "Risk Meter Dashboard":
     status_text.empty()
 
     if failed_symbols:
-        st.warning(f"Failed to fetch data for: {', '.join(failed_symbols)}. Try adding .NS or .BO suffix for Indian stocks.")
+        st.warning(f"Failed to fetch: {', '.join(failed_symbols)}. Try adding .NS or .BO for Indian stocks.")
 
     if not metrics:
-        st.error("No valid data available. Please check your symbols and try again.")
+        st.error("No valid data. Check symbols and try again.")
         st.stop()
 
     # Portfolio Overview
     st.markdown('<div class="section-header">Portfolio Overview</div>', unsafe_allow_html=True)
-    
     avg_risk = np.mean([m['risk_score'] for m in metrics.values()])
     avg_ret = np.mean([m['annual_return'] for m in metrics.values()])
     avg_sharpe = np.mean([m['sharpe'] for m in metrics.values()])
@@ -399,7 +379,7 @@ if page == "Risk Meter Dashboard":
         <div class="metric-box" style="border-left: 5px solid {color};">
             <div class="metric-value" style="color: {color};">{int(avg_risk)}</div>
             <div class="metric-label">Risk Score</div>
-            <div style="margin-top: 0.5rem; font-size: 1rem;">{cat}</div>
+            <div style="margin-top: 0.5rem;">{cat}</div>
         </div>
         """, unsafe_allow_html=True)
     with col2:
@@ -426,7 +406,7 @@ if page == "Risk Meter Dashboard":
         </div>
         """, unsafe_allow_html=True)
 
-    # Visualizations
+    # Portfolio Visualizations
     st.markdown('<div class="section-header">Portfolio Visualizations</div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
@@ -446,13 +426,13 @@ if page == "Risk Meter Dashboard":
             fig.update_layout(height=500)
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Sector data limited or uniform across holdings")
+            st.info("Limited or uniform sector data")
 
     # Individual Analysis Table
     st.markdown('<div class="section-header">Individual Stock Analysis</div>', unsafe_allow_html=True)
     table_data = []
     for sym, m in metrics.items():
-        rec, reason = get_recommendation(m)
+        rec, _ = get_recommendation(m)
         cat, _ = categorize_risk(m['risk_score'])
         table_data.append({
             'Symbol': sym,
@@ -468,13 +448,12 @@ if page == "Risk Meter Dashboard":
             'Recommendation': rec
         })
     if table_data:
-        df_table = pd.DataFrame(table_data)
-        st.dataframe(df_table, use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
 
-    # Detailed View
+    # Detailed Stock View
     st.markdown('<div class="section-header">Detailed Stock Analysis</div>', unsafe_allow_html=True)
     if metrics:
-        selected = st.selectbox("Select a stock for detailed view", options=list(metrics.keys()))
+        selected = st.selectbox("Select stock", options=list(metrics.keys()))
         if selected:
             df = data[selected]
             m = metrics[selected]
@@ -483,7 +462,7 @@ if page == "Risk Meter Dashboard":
             used = used_symbols.get(selected, selected)
             
             st.subheader(f"{inf['name']} ({mkt})")
-            st.caption(f"Data source symbol: {used}")
+            st.caption(f"Data source: {used}")
             
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Sector", inf['sector'])
@@ -506,16 +485,13 @@ if page == "Risk Meter Dashboard":
                 fig.add_trace(go.Scatter(x=df.index, y=ma20, name='MA20', line=dict(color='orange')), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=ma50, name='MA50', line=dict(color='blue')), row=1, col=1)
                 fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume'), row=2, col=1)
-                
                 rsi = calculate_rsi(df['Close'])
                 fig.add_trace(go.Scatter(x=df.index, y=rsi, name='RSI', line=dict(color='purple')), row=3, col=1)
                 fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
                 fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
-                
                 macd_line, signal_line = calculate_macd(df['Close'])
                 fig.add_trace(go.Scatter(x=df.index, y=macd_line, name='MACD', line=dict(color='blue')), row=4, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=signal_line, name='Signal', line=dict(color='red')), row=4, col=1)
-                
                 fig.update_layout(height=800, template='plotly_dark', showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
             
@@ -535,7 +511,6 @@ if page == "Risk Meter Dashboard":
                     fig_hist.update_layout(height=400)
                     st.plotly_chart(fig_hist, use_container_width=True)
 
-            # Metrics and Recommendation
             col1, col2 = st.columns([1, 2])
             with col1:
                 st.markdown("**Key Risk Metrics**")
@@ -544,13 +519,11 @@ if page == "Risk Meter Dashboard":
                 st.metric("Max Drawdown", f"{m['max_dd']:.1f}%")
                 st.metric("VaR (95%)", f"{m['var_95']:.2f}%")
                 st.metric("Beta", f"{m['beta']:.2f}")
-                
                 st.markdown("**Performance Metrics**")
                 st.metric("Annual Return", f"{m['annual_return']:+.1f}%")
                 st.metric("Sharpe Ratio", f"{m['sharpe']:.2f}")
                 st.metric("Sortino Ratio", f"{m['sortino']:.2f}")
                 st.metric("Win Rate", f"{m['win_rate']:.1f}%")
-                
                 rec, reason = get_recommendation(m)
                 st.success(f"**Recommendation: {rec}**\n\n{reason}")
             
@@ -564,20 +537,17 @@ if page == "Risk Meter Dashboard":
                 curr_rsi = rsi.iloc[-1]
                 rsi_status = "Neutral" if 30 < curr_rsi < 70 else ("Overbought" if curr_rsi > 70 else "Oversold")
                 col_a.metric("RSI (14)", f"{curr_rsi:.1f}", rsi_status)
-                
                 macd_val = macd_line.iloc[-1]
                 macd_status = "Bullish" if macd_val > signal_line.iloc[-1] else "Bearish"
                 col_b.metric("MACD", f"{macd_val:.3f}", macd_status)
-                
                 price = df['Close'].iloc[-1]
                 col_c.metric("Current Price", f"{currency}{price:.2f}")
-                
                 ma20_val = ma20.iloc[-1] if not ma20.empty else price
                 vs_ma = ((price / ma20_val) - 1) * 100
                 col_d.metric("vs MA20", f"{vs_ma:+.1f}%")
 
     st.markdown("---")
-    st.caption("For educational purposes only. Not financial advice. Data provided by yfinance. Built with Streamlit.")
+    st.caption("For educational purposes only. Not financial advice. Data via yfinance. Built with Streamlit.")
 
 # -----------------------------
 # PAGE 2: Glossary & Explanations
@@ -588,44 +558,44 @@ else:
 
     st.markdown("""
     <div class="term-header">Risk Score (0–100)</div>
-    <div class="term-desc">A composite score combining volatility, maximum drawdown, downside risk, beta deviation, and Sharpe ratio penalty. Lower scores indicate safer investments.</div>
+    <div class="term-desc">Composite score based on volatility, drawdown, downside risk, beta, and Sharpe. Lower = safer.</div>
 
     <div class="term-header">Annual Volatility</div>
-    <div class="term-desc">Standard deviation of daily returns annualized. Measures price fluctuation intensity.</div>
+    <div class="term-desc">Annualized standard deviation of returns. Measures price fluctuation.</div>
 
     <div class="term-header">Sharpe Ratio</div>
-    <div class="term-desc">Return per unit of risk. Higher values (>1 good, >2 excellent) indicate better risk-adjusted performance.</div>
+    <div class="term-desc">Return per unit of risk. >1 good, >2 excellent.</div>
 
     <div class="term-header">Sortino Ratio</div>
-    <div class="term-desc">Like Sharpe but focuses only on downside volatility.</div>
+    <div class="term-desc">Like Sharpe, but only penalizes downside volatility.</div>
 
-    <div class="term-header">Maximum Drawdown</div>
-    <div class="term-desc">Largest peak-to-trough decline. Shows worst historical loss from a high point.</div>
+    <div class="term-header">Max Drawdown</div>
+    <div class="term-desc">Largest historical peak-to-trough decline.</div>
 
-    <div class="term-header">Value at Risk (95%)</div>
-    <div class="term-desc">Estimated maximum daily loss with 95% confidence over the period.</div>
+    <div class="term-header">VaR (95%)</div>
+    <div class="term-desc">Worst expected daily loss with 95% confidence.</div>
 
     <div class="term-header">Beta</div>
-    <div class="term-desc">Measures sensitivity to market movements. Beta = 1 moves with market; >1 more volatile.</div>
+    <div class="term-desc">Sensitivity to market movements. 1 = market pace.</div>
 
     <div class="term-header">Alpha</div>
-    <div class="term-desc">Excess return above market expectation given the stock's beta.</div>
+    <div class="term-desc">Excess return beyond market expectation.</div>
 
-    <div class="term-header">RSI (Relative Strength Index)</div>
-    <div class="term-desc">Momentum oscillator (0-100). Above 70 suggests overbought; below 30 suggests oversold.</div>
+    <div class="term-header">RSI</div>
+    <div class="term-desc">Momentum indicator. >70 overbought, <30 oversold.</div>
 
     <div class="term-header">MACD</div>
-    <div class="term-desc">Shows relationship between two moving averages. Bullish when MACD line crosses above signal line.</div>
+    <div class="term-desc">Trend-following momentum from moving averages.</div>
     """, unsafe_allow_html=True)
 
     st.markdown("### Risk Categories")
     st.markdown("""
-    - **Very Low (0–20)**: Extremely stable  
-    - **Low (21–35)**: Safe with good potential  
-    - **Moderate (36–50)**: Balanced profile  
-    - **Elevated (51–65)**: Higher volatility  
-    - **High (66–80)**: Significant risk  
-    - **Very High (81–100)**: Highly speculative
+    - Very Low (0–20): Extremely stable  
+    - Low (21–35): Safe with potential  
+    - Moderate (36–50): Balanced  
+    - Elevated (51–65): Higher volatility  
+    - High (66–80): Significant risk  
+    - Very High (81–100): Speculative
     """)
 
-    st.caption("All metrics are historical. Past performance does not guarantee future results.")
+    st.caption("Historical metrics only. Past performance ≠ future results.")
